@@ -41,12 +41,6 @@
 ;;currently use center of graph to rotate 
 (define tetris-rotate-scheme
   '((l r) (id) (r l) (l r) (r r r r) (l l l l) (r r r r)))
-(define (flatmap f l)
-  (apply map f l))
-(define (rotate-right tetris-graph)
-  (map list->string (map reverse (flatmap (lambda x (apply list x)) (map string->list tetris-graph)))))
-(define (rotate-left tetris-graph)
-  (map list->string (reverse (flatmap (lambda x (apply list x)) (map string->list tetris-graph)))))
 (define (grid-color n)
   (case n
     [(-1) (color #x00 #x22 #x44)]
@@ -63,11 +57,17 @@
         (fold kons (kons (car l) knil) (cdr l))))
   (define (findnwdot vov)
     (let ([n (vector-length vov)])
-      (for*/or ([i (in-range n)]
-                [j (in-range n)])
-        (if (> (vector-ref (vector-ref vov j) i) 0)
-            (make-dot i j)
-            #f))))
+      (let ([x (for*/or ([i (in-range n)]
+                         [j (in-range n)])
+                 (if (> (vector-ref (vector-ref vov j) i) 0)
+                     i
+                     #f))]
+            [y (for*/or ([j (in-range n)]
+                         [i (in-range n)])
+                 (if (> (vector-ref (vector-ref vov j) i) 0)
+                     j
+                     #f))])
+        (make-dot x y))))
   (define (rotate lr vovl)
     (let* ([l (eq? 'l lr)]
            [vov (car vovl)]
@@ -103,33 +103,15 @@
   (match-define (world state graph act score wt frames start-time) w)
   ;; allow force new tetris for testing
   (when act (vector-map (lambda (i) (vector-set! state i 0)) (active-TETRIS-actv act)))
-  (define (iota n)
-    (if (= n 1)
-        '(0)
-        (append (iota (- n 1)) (list (- n 1)))))
-  (define (nwcorner t-graph)
-    (let* ([n (length t-graph)]
-           [alldotstr (make-string n #\.)]
-           [alldot (lambda (str) (string=? str alldotstr))]
-           [f (lambda (str i)
-                (if (alldot str) #f i))]
-           [y (ormap f t-graph (iota n))]
-           [s-y (list-ref t-graph y)]
-           [g (lambda (c i)
-                (if (eq? #\. c) #f i))]
-           [x (ormap g (string->list s-y) (iota n))])
-      (make-dot x y)))
   (let* ([r (random *tetris-num*)]
-         [g (list-ref tetris-graph r)]
-         [n (length g)]
-         [dt (nwcorner g)]
-         [x (dot-x dt)]
-         [y (dot-y dt)]
-         [ab? (lambda (c) (or (eq? c #\a) (eq? c #\b)))]
-         [actl '()])
-    (for* ([j (in-range (- n y))]
-           [i (in-range (- n x))])
-      (when (ab? (string-ref (list-ref g (+ y j)) (+ x i)))
+         [g (vector-ref tetris-groups r)]
+         [base (vector-ref (TETRIS-group-varient g) 0)])
+    (match-define (base-TETRIS vov size nwd) base)
+    (match-define (dot x y) nwd)
+    (define actl '())
+    (for* ([j (in-range (- size y))]
+           [i (in-range (- size x))])
+      (when (= (vector-ref (vector-ref vov (+ y j)) (+ x i)) 1)
         (let ([ii (+ i 3)])
           (vector-set! state (+ (* j xxx) ii) 1)
           (set! actl (cons (+ (* j xxx) ii) actl))))
