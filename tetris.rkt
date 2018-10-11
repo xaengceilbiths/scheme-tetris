@@ -10,12 +10,18 @@
 
 (define-values (xxx yyy xxyy *tetris-num*)
   (values 10 20 200 7))
+(define *spawnx* (quotient (- xxx 3) 2))
 (define-values (*magnification* *tile-side* *grid-spacing*)
   (values 2 20 2))
 (define-values (*gridx* *gridy*)
   (values (+ (* xxx *tile-side*) (* (add1 xxx) *grid-spacing*))
           (+ (* yyy *tile-side*) (* (add1 yyy) *grid-spacing*))))
 (define *background-color* (color #xcd #x95 #x75))
+(define (grid-color n)
+  (case n
+    [(-1) (color #x00 #x22 #x44)]
+    [(0) (color #x55 #x44 #x66)]
+    [else (color #x00 #xbb #x00)]))
 (define tetris-graph
   '(("...."
      "babb"
@@ -41,15 +47,11 @@
 ;;currently use center of graph to rotate 
 (define tetris-rotate-scheme
   '((l r) (id) (r l) (l r) (r r r r) (l l l l) (r r r r)))
-(define (grid-color n)
-  (case n
-    [(-1) (color #x00 #x22 #x44)]
-    [(0) (color #x55 #x44 #x66)]
-    [else (color #x00 #xbb #x00)]))
 (define-struct dot (x y) #:mutable #:transparent)
 (define-struct base-TETRIS (vov size innernw-dot) #:mutable #:transparent)
 (define-struct TETRIS-group (varient size nom) #:mutable #:transparent)
 (define-struct active-TETRIS (group tid boxnw actv) #:mutable #:transparent)
+(define-struct world (state graph active score winning-total frames start-time) #:mutable #:transparent)
 (define (create-tetris-group base-graph rotate-scheme)
   (define (fold kons knil l)
     (if (null? l)
@@ -93,7 +95,6 @@
          [bases (vector-map makebase vovs nws)])
     (make-TETRIS-group bases size (length rotate-scheme))))
 (define tetris-groups (list->vector (map create-tetris-group tetris-graph tetris-rotate-scheme)))
-(define-struct world (state graph active score winning-total frames start-time) #:mutable #:transparent)
 (define (place-tile/ij tile i j grid-image)
   (define (pos k)
     (+ (* (add1 k) *grid-spacing*)
@@ -112,10 +113,10 @@
     (for* ([j (in-range (- size y))]
            [i (in-range (- size x))])
       (when (= (vector-ref (vector-ref vov (+ y j)) (+ x i)) 1)
-        (let ([ii (+ i 3)])
+        (let ([ii (+ i *spawnx*)])
           (vector-set! state (+ (* j xxx) ii) 1)
           (set! actl (cons (+ (* j xxx) ii) actl))))
-      (let ([active-tetris (make-active-TETRIS r 0 (- (- 3 x) (* xxx y)) (list->vector actl))])
+      (let ([active-tetris (make-active-TETRIS r 0 (- (- *spawnx* x) (* xxx y)) (list->vector actl))])
         (set-world-active! w active-tetris))))
   (set-world-state! w state)
   w)
